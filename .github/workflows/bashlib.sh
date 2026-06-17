@@ -82,7 +82,7 @@ setup-postgres() {
   say "::group::Install dependency for unit tests"
   sudo apt-get update && sudo apt-get install --yes libecpg-dev
   say "::group::Initialize database"
-  psql "postgresql://superset:superset@127.0.0.1:15432/superset" <<-EOF
+  psql "postgresql://${POSTGRES_USER:-superset}:${POSTGRES_PASSWORD}@127.0.0.1:15432/superset" <<-EOF
     DROP SCHEMA IF EXISTS sqllab_test_db CASCADE;
     DROP SCHEMA IF EXISTS admin_database CASCADE;
     CREATE SCHEMA sqllab_test_db;
