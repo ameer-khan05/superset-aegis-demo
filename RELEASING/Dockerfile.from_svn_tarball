@@ -35,7 +35,12 @@ RUN apt-get install -y subversion build-essential libssl-dev \
 # Install nodejs for custom build
 # https://nodejs.org/en/download/package-manager/
 RUN set -eux; \
-  curl -sL https://deb.nodesource.com/setup_20.x | bash -; \
+  mkdir -p /etc/apt/keyrings; \
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+    | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg; \
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
+    > /etc/apt/sources.list.d/nodesource.list; \
+  apt-get update; \
   apt-get install -y nodejs; \
   node --version;
 RUN if ! which npm; then apt-get install -y npm; fi
