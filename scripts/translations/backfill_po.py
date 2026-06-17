@@ -115,14 +115,20 @@ LANGUAGE_NAMES: dict[str, str] = {
 
 def _ensure_license_header(po_path: Path, *, dry_run: bool = False) -> None:
     """Prepend the ASF license header to the .po file if it is missing."""
-    content = po_path.read_text(encoding="utf-8")
+    resolved = po_path.resolve()
+    allowed_base = TRANSLATIONS_DIR.resolve()
+    if not str(resolved).startswith(str(allowed_base) + "/"):
+        raise ValueError(
+            f"Refusing to write outside translations directory: {resolved}"
+        )
+    content = resolved.read_text(encoding="utf-8")
     if "Licensed to the Apache Software Foundation" not in content:
         if dry_run:
             print(
                 f"[dry-run] Would add ASF license header to {po_path}", file=sys.stderr
             )
         else:
-            po_path.write_text(_ASF_LICENSE_HEADER + content, encoding="utf-8")
+            resolved.write_text(_ASF_LICENSE_HEADER + content, encoding="utf-8")
             print(f"Added ASF license header to {po_path}", file=sys.stderr)
 
 
