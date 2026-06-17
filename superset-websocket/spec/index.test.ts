@@ -545,7 +545,10 @@ describe('server', () => {
     });
 
     test('invalid JWT', async () => {
-      const invalidToken = jwt.sign({ channel: channelId }, crypto.randomBytes(32).toString('hex'));
+      const invalidToken = jwt.sign(
+        { channel: channelId },
+        crypto.randomBytes(32).toString('hex'),
+      );
       const request = getRequest(invalidToken, 'http://localhost');
 
       expect(() => {
@@ -823,7 +826,10 @@ describe('server', () => {
     });
 
     test('invalid JWT', async () => {
-      const invalidToken = jwt.sign({ channel: channelId }, crypto.randomBytes(32).toString('hex'));
+      const invalidToken = jwt.sign(
+        { channel: channelId },
+        crypto.randomBytes(32).toString('hex'),
+      );
       const request = getRequest(invalidToken, 'http://localhost');
 
       server.httpUpgrade(request, socket, Buffer.alloc(5));
