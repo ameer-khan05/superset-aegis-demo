@@ -35,6 +35,7 @@ logging.getLogger("flask_appbuilder.security.sqla.manager").setLevel(logging.WAR
 logging.getLogger("sqlalchemy.engine.Engine").setLevel(logging.WARNING)
 
 SECRET_KEY = "dummy_secret_key_for_test_to_silence_warnings"  # noqa: S105
+SMTP_PASSWORD = "test_smtp_password"  # noqa: S105
 AUTH_USER_REGISTRATION_ROLE = "alpha"
 SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(  # noqa: F405
     DATA_DIR,
