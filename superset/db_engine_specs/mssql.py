@@ -218,7 +218,7 @@ class AzureSynapseSpec(MssqlEngineSpec):
         ],
         "pypi_packages": ["pymssql"],
         "connection_string": (
-            "mssql+pymssql://{username}@{server}:{password}@"
+            "mssql+pymssql://{username}%40{server}:{password}@"
             "{server}.database.windows.net:1433/{database}"
         ),
     }
