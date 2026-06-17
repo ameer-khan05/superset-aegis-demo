@@ -13,18 +13,24 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          # PR analysis only needs the merge-base diff; full history is
-          # unnecessary and slow on a 1.2M-line repo.
+          # PRs need full history for accurate diff analysis;
+          # pushes/dispatch use shallow clone since we limit the scan scope.
           fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
+
       - name: SonarQube Scan
         id: sonar-scan
-        # Only run the scan on PRs (incremental/fast) or workflow_dispatch.
-        # On pushes to master the findings backlog already lives in SonarCloud;
-        # we just need to notify Aegis to remediate the existing findings.
-        if: github.event_name == 'pull_request'
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          # On PRs: full incremental analysis (SonarCloud auto-diffs against target).
+          # On push/dispatch: limit to a minimal file set so the scan completes
+          # in seconds rather than scanning all 1.2M lines. The findings backlog
+          # already exists in SonarCloud; this just produces a taskId to trigger Aegis.
+          args: >
+            ${{ github.event_name != 'pull_request'
+                && '-Dsonar.inclusions=sonar-project.properties'
+                || '' }}
 
       - name: Notify Aegis orchestrator
         if: always()
