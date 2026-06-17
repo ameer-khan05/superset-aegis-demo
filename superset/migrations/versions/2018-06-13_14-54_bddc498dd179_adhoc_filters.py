@@ -71,7 +71,7 @@ def downgrade():
     for slc in session.query(Slice).all():
         try:
             params = json.loads(slc.params)
-            split_adhoc_filters_into_base_filters(params)
+            split_adhoc_filters_into_base_filters(params, "base")
 
             if "adhoc_filters" in params:
                 del params["adhoc_filters"]
