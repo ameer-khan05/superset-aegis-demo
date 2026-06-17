@@ -11,10 +11,6 @@ RUN apt-get update && apt-get install -y \
     gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast Python package management
-# This will also be cached in the image
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    echo 'export PATH="/root/.cargo/bin:$PATH"' >> /etc/bash.bashrc
-
-# Set the cargo/bin directory in PATH for all users
-ENV PATH="/root/.cargo/bin:${PATH}"
+# Install uv for fast Python package management using the official image
+# instead of piping a downloaded script into sh (docker:S8482)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
