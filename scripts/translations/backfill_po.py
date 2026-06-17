@@ -116,8 +116,6 @@ LANGUAGE_NAMES: dict[str, str] = {
 def _ensure_license_header(po_path: Path, *, dry_run: bool = False) -> None:
     """Prepend the ASF license header to the .po file if it is missing."""
     resolved = po_path.resolve()
-    if not resolved.is_relative_to(TRANSLATIONS_DIR.resolve()):
-        raise ValueError(f"Path {po_path} resolves outside the translations directory")
     content = resolved.read_text(encoding="utf-8")
     if "Licensed to the Apache Software Foundation" not in content:
         if dry_run:
@@ -528,7 +526,13 @@ def backfill(
             file=sys.stderr,
         )
         sys.exit(1)
-    po_path = TRANSLATIONS_DIR / lang / "LC_MESSAGES" / "messages.po"
+    po_path = (TRANSLATIONS_DIR / lang / "LC_MESSAGES" / "messages.po").resolve()
+    if not po_path.is_relative_to(TRANSLATIONS_DIR.resolve()):
+        print(
+            f"Resolved path {po_path} escapes the translations directory.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     if not po_path.exists():
         print(f"No .po file found for language '{lang}': {po_path}", file=sys.stderr)
         sys.exit(1)
