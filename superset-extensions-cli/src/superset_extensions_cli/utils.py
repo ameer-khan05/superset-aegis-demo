@@ -111,8 +111,20 @@ def read_json(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text())
 
 
+def _validate_path(path: Path) -> Path:
+    """Resolve a file path and reject path-traversal attempts.
+
+    Raises:
+        ValueError: If ``path`` contains ``..`` components.
+    """
+    if ".." in path.parts:
+        raise ValueError(f"Path traversal detected: {path}")
+    return path.resolve()
+
+
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    safe_path = _validate_path(path)
+    safe_path.write_text(json.dumps(data, indent=2) + "\n")
 
 
 def write_toml(path: Path, data: dict[str, Any]) -> None:
