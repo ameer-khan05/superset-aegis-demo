@@ -27,6 +27,7 @@ import {
   afterEach,
   jest,
 } from '@jest/globals';
+import * as crypto from 'crypto';
 import * as http from 'http';
 import * as net from 'net';
 import { WebSocket } from 'ws';
@@ -49,7 +50,7 @@ jest.mock('ioredis', () => {
 
 const wsMock = WebSocket as jest.Mocked<typeof WebSocket>;
 const channelId = 'bc9e040c-7b4a-4817-99b9-292832d97ec7';
-const INVALID_JWT_SECRET = require('crypto').randomBytes(32).toString('hex');
+const INVALID_JWT_SECRET = crypto.randomBytes(32).toString('hex');
 const streamReturnValue: server.StreamResult[] = [
   [
     '1615426152415-0',
