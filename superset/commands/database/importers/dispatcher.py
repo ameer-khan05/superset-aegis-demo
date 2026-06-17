@@ -24,10 +24,11 @@ from superset.commands.base import BaseCommand
 from superset.commands.database.importers import v1
 from superset.commands.exceptions import CommandInvalidError
 from superset.commands.importers.exceptions import IncorrectVersionError
+from superset.commands.importers.v1 import ImportModelsCommand
 
 logger = logging.getLogger(__name__)
 
-command_versions = [v1.ImportDatabasesCommand]
+command_versions: list[type[ImportModelsCommand]] = [v1.ImportDatabasesCommand]
 
 
 class ImportDatabasesCommand(BaseCommand):
