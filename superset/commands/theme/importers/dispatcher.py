@@ -23,15 +23,13 @@ from marshmallow.exceptions import ValidationError
 from superset.commands.base import BaseCommand
 from superset.commands.exceptions import CommandInvalidError
 from superset.commands.importers.exceptions import IncorrectVersionError
-from superset.commands.theme.import_themes import (
-    ImportThemesCommand as ImportThemesCommandV1,
-)
+from superset.commands.theme import import_themes
 
 logger = logging.getLogger(__name__)
 
 # list of different import formats supported
 command_versions = [
-    ImportThemesCommandV1,
+    import_themes.ImportThemesCommand,
 ]
 
 
