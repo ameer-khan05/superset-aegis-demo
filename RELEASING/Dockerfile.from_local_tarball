@@ -33,12 +33,24 @@ RUN apt-get install -y build-essential libssl-dev \
   libffi-dev python3-dev libsasl2-dev libldap2-dev libxi-dev chromium zstd
 
 # Install nodejs for custom build
-# https://nodejs.org/en/download/package-manager/
+# https://nodejs.org/en/download/
+ARG NODE_VERSION=20.18.1
 RUN set -eux; \
-  curl -sL https://deb.nodesource.com/setup_20.x | bash -; \
-  apt-get install -y nodejs; \
-  node --version;
-RUN if ! which npm; then apt-get install -y npm; fi
+  ARCH="$(dpkg --print-architecture)"; \
+  case "$ARCH" in \
+    amd64) NODE_ARCH="x64" ;; \
+    arm64) NODE_ARCH="arm64" ;; \
+    *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;; \
+  esac; \
+  curl -fsSL -o /tmp/node.tar.xz \
+    "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"; \
+  curl -fsSL -o /tmp/SHASUMS256.txt \
+    "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"; \
+  cd /tmp && grep "node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" SHASUMS256.txt | sha256sum -c -; \
+  tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1; \
+  rm -f /tmp/node.tar.xz /tmp/SHASUMS256.txt; \
+  node --version; \
+  npm --version
 
 RUN mkdir -p /home/superset
 RUN chown superset /home/superset
