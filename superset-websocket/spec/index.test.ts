@@ -27,6 +27,7 @@ import {
   afterEach,
   jest,
 } from '@jest/globals';
+import * as crypto from 'crypto';
 import * as http from 'http';
 import * as net from 'net';
 import { WebSocket } from 'ws';
@@ -544,7 +545,7 @@ describe('server', () => {
     });
 
     test('invalid JWT', async () => {
-      const invalidToken = jwt.sign({ channel: channelId }, 'invalid secret');
+      const invalidToken = jwt.sign({ channel: channelId }, crypto.randomBytes(32).toString('hex'));
       const request = getRequest(invalidToken, 'http://localhost');
 
       expect(() => {
@@ -822,7 +823,7 @@ describe('server', () => {
     });
 
     test('invalid JWT', async () => {
-      const invalidToken = jwt.sign({ channel: channelId }, 'invalid secret');
+      const invalidToken = jwt.sign({ channel: channelId }, crypto.randomBytes(32).toString('hex'));
       const request = getRequest(invalidToken, 'http://localhost');
 
       server.httpUpgrade(request, socket, Buffer.alloc(5));
