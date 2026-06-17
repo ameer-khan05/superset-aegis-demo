@@ -89,3 +89,6 @@ CLAUDE.md
 CURSOR.md
 GEMINI.md
 GPT.md
+
+# SonarCloud config
+sonar-project.properties
