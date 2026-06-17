@@ -119,9 +119,7 @@ def _ensure_license_header(po_path: Path, *, dry_run: bool = False) -> None:
     resolved = po_path.resolve()
     allowed_dir = TRANSLATIONS_DIR.resolve()
     if not str(resolved).startswith(str(allowed_dir) + os.sep):
-        raise ValueError(
-            f"Path {po_path} resolves outside the translations directory"
-        )
+        raise ValueError(f"Path {po_path} resolves outside the translations directory")
     content = resolved.read_text(encoding="utf-8")
     if "Licensed to the Apache Software Foundation" not in content:
         if dry_run:
