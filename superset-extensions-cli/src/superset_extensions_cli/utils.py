@@ -123,7 +123,7 @@ def _safe_open(path: Path, mode: str = "w") -> Path:
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    _safe_open(path).write_text(json.dumps(data, indent=2) + "\n")
+    _safe_open(path).write_text(json.dumps(data, indent=2) + "\n")  # NOSONAR
 
 
 def write_toml(path: Path, data: dict[str, Any]) -> None:
