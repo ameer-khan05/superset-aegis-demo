@@ -112,7 +112,11 @@ def read_json(path: Path) -> dict[str, Any] | None:
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    resolved = path.resolve()
+    base_dir = Path.cwd().resolve()
+    if not resolved.is_relative_to(base_dir):
+        raise ValueError(f"Path '{path}' resolves outside the working directory")
+    resolved.write_text(json.dumps(data, indent=2) + "\n")
 
 
 def write_toml(path: Path, data: dict[str, Any]) -> None:
