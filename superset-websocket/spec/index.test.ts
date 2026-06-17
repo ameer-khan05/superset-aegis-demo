@@ -49,6 +49,7 @@ jest.mock('ioredis', () => {
 
 const wsMock = WebSocket as jest.Mocked<typeof WebSocket>;
 const channelId = 'bc9e040c-7b4a-4817-99b9-292832d97ec7';
+const INVALID_JWT_SECRET = 'not-the-real-secret-used-only-for-testing';
 const streamReturnValue: server.StreamResult[] = [
   [
     '1615426152415-0',
@@ -544,7 +545,7 @@ describe('server', () => {
     });
 
     test('invalid JWT', async () => {
-      const invalidToken = jwt.sign({ channel: channelId }, 'invalid secret');
+      const invalidToken = jwt.sign({ channel: channelId }, INVALID_JWT_SECRET);
       const request = getRequest(invalidToken, 'http://localhost');
 
       expect(() => {
@@ -822,7 +823,7 @@ describe('server', () => {
     });
 
     test('invalid JWT', async () => {
-      const invalidToken = jwt.sign({ channel: channelId }, 'invalid secret');
+      const invalidToken = jwt.sign({ channel: channelId }, INVALID_JWT_SECRET);
       const request = getRequest(invalidToken, 'http://localhost');
 
       server.httpUpgrade(request, socket, Buffer.alloc(5));
