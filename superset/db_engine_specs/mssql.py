@@ -20,15 +20,24 @@ import logging
 import re
 from datetime import datetime
 from re import Pattern
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
+from apispec import APISpec
+from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_babel import gettext as __
+from marshmallow import fields, Schema
 from sqlalchemy import types
 from sqlalchemy.dialects.mssql.base import SMALLDATETIME
+from sqlalchemy.engine.url import URL
 
 from superset.constants import TimeGrain
-from superset.db_engine_specs.base import BaseEngineSpec, DatabaseCategory
-from superset.errors import SupersetErrorType
+from superset.databases.utils import make_url_safe
+from superset.db_engine_specs.base import (
+    BaseEngineSpec,
+    BasicPropertiesType,
+    DatabaseCategory,
+)
+from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.models.sql_types.mssql_sql_types import GUID
 from superset.utils.core import GenericDataType
 
@@ -199,6 +208,22 @@ class MssqlEngineSpec(BaseEngineSpec):
         return f"{cls.engine} error: {cls._extract_error_message(ex)}"
 
 
+class AzureSynapseParametersSchema(Schema):
+    username = fields.Str(required=True)
+    password = fields.Str(required=True)
+    server = fields.Str(required=True)
+    database = fields.Str(required=True)
+    port = fields.Integer(load_default=1433)
+
+
+class AzureSynapseParametersType(TypedDict, total=False):
+    username: str
+    password: str
+    server: str
+    database: str
+    port: int
+
+
 class AzureSynapseSpec(MssqlEngineSpec):
     engine = "mssql"
     engine_name = "Azure Synapse"
@@ -222,3 +247,84 @@ class AzureSynapseSpec(MssqlEngineSpec):
             "{server}.database.windows.net:1433/{database}"
         ),
     }
+
+    parameters_schema = AzureSynapseParametersSchema()
+    sqlalchemy_uri_placeholder = (
+        "mssql+pymssql://{username}@{server}:{password}@"
+        "{server}.database.windows.net:1433/{database}"
+    )
+
+    @classmethod
+    def build_sqlalchemy_uri(  # pylint: disable=unused-argument
+        cls,
+        parameters: AzureSynapseParametersType,
+        encrypted_extra: dict[str, str] | None = None,
+    ) -> str:
+        server = parameters.get("server", "")
+        return str(
+            URL.create(
+                "mssql+pymssql",
+                username=f"{parameters.get('username', '')}@{server}",
+                password=parameters.get("password"),
+                host=f"{server}.database.windows.net",
+                port=parameters.get("port", 1433),
+                database=parameters.get("database"),
+            )
+        )
+
+    @classmethod
+    def get_parameters_from_uri(  # pylint: disable=unused-argument
+        cls,
+        uri: str,
+        encrypted_extra: dict[str, str] | None = None,
+    ) -> AzureSynapseParametersType:
+        url = make_url_safe(uri)
+        username = url.username or ""
+        server = ""
+        if "@" in username:
+            username, server = username.rsplit("@", 1)
+        elif url.host:
+            server = url.host.replace(".database.windows.net", "")
+        return {
+            "username": username,
+            "password": url.password,
+            "server": server,
+            "database": url.database,
+            "port": url.port or 1433,
+        }
+
+    @classmethod
+    def validate_parameters(
+        cls, properties: BasicPropertiesType
+    ) -> list[SupersetError]:
+        errors: list[SupersetError] = []
+        required = {"username", "password", "server", "database"}
+        parameters = properties.get("parameters", {})
+        present = {key for key in parameters if parameters.get(key, ())}
+
+        if missing := sorted(required - present):
+            errors.append(
+                SupersetError(
+                    message=f"One or more parameters are missing: {', '.join(missing)}",
+                    error_type=SupersetErrorType.CONNECTION_MISSING_PARAMETERS_ERROR,
+                    level=ErrorLevel.WARNING,
+                    extra={"missing": missing},
+                ),
+            )
+        return errors
+
+    @classmethod
+    def parameters_json_schema(cls) -> Any:
+        if not cls.parameters_schema:
+            return None
+
+        ma_plugin = MarshmallowPlugin()
+        spec = APISpec(
+            title="Database Parameters",
+            version="1.0.0",
+            openapi_version="3.0.0",
+            plugins=[ma_plugin],
+        )
+
+        spec.components.schema(cls.__name__, schema=cls.parameters_schema)
+        return spec.to_dict()["components"]["schemas"][cls.__name__]
