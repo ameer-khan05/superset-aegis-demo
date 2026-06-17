@@ -16,6 +16,7 @@
 # under the License.
 
 import json  # noqa: TID251
+import os
 import re
 import sys
 from pathlib import Path
@@ -111,18 +112,18 @@ def read_json(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text())
 
 
-def _safe_resolve(path: Path) -> Path:
-    """Resolve *path* and verify it stays inside the working directory."""
-    base_dir = Path.cwd().resolve()
-    resolved = path.resolve()
-    if not resolved.is_relative_to(base_dir):
+def _safe_open(path: Path, mode: str = "w") -> Path:
+    """Resolve *path*, verify it stays inside the working directory, and return
+    the canonicalised version suitable for writing."""
+    base = os.path.realpath(os.getcwd())
+    canonical = os.path.realpath(path)
+    if not canonical.startswith(base + os.sep) and canonical != base:
         raise ValueError(f"Path '{path}' resolves outside the working directory")
-    return base_dir / resolved.relative_to(base_dir)
+    return Path(canonical)
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    safe_path = _safe_resolve(path)
-    safe_path.write_text(json.dumps(data, indent=2) + "\n")
+    _safe_open(path).write_text(json.dumps(data, indent=2) + "\n")
 
 
 def write_toml(path: Path, data: dict[str, Any]) -> None:
