@@ -45,14 +45,14 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
       SUPERSET_CONFIG: tests.integration_tests.superset_test_config
       REDIS_PORT: 16379
-      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:superset@127.0.0.1:15432/superset
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${{ secrets.POSTGRES_PASSWORD }}@127.0.0.1:15432/superset
       SUPERSET__SQLALCHEMY_EXAMPLES_URI: presto://localhost:15433/memory/default
     services:
       postgres:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: superset
-          POSTGRES_PASSWORD: superset
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         ports:
           # Use custom ports for services to avoid accidentally connecting to
           # GitHub action runner's default installations
@@ -61,7 +61,7 @@ jobs:
         image: starburstdata/presto:350-e.6
         env:
           POSTGRES_USER: superset
-          POSTGRES_PASSWORD: superset
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         ports:
           # Use custom ports for services to avoid accidentally connecting to
           # GitHub action runner's default installations
@@ -108,7 +108,7 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
       SUPERSET_CONFIG: tests.integration_tests.superset_test_config
       REDIS_PORT: 16379
-      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:superset@127.0.0.1:15432/superset
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${{ secrets.POSTGRES_PASSWORD }}@127.0.0.1:15432/superset
       SUPERSET__SQLALCHEMY_EXAMPLES_URI: hive://localhost:10000/default
       UPLOAD_FOLDER: /tmp/.superset/uploads/
     services:
@@ -116,7 +116,7 @@ jobs:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: superset
-          POSTGRES_PASSWORD: superset
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         ports:
           # Use custom ports for services to avoid accidentally connecting to
           # GitHub action runner's default installations
