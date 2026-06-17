@@ -34,11 +34,13 @@ RUN apt-get install -y subversion build-essential libssl-dev \
 
 # Install nodejs for custom build
 # https://nodejs.org/en/download/package-manager/
-# Downloads GPG key to file and verifies before configuring apt repository
+# Downloads GPG key to file, verifies checksum, then configures apt repository
+ARG NODESOURCE_GPG_SHA256=b42e0321dabdc24e892115da705cf061167eac12a317f23d329862d0aa0a271d
 RUN set -eux; \
   apt-get install -y ca-certificates curl gnupg; \
   mkdir -p /etc/apt/keyrings; \
   curl -fsSL -o /tmp/nodesource.gpg.key https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key; \
+  echo "${NODESOURCE_GPG_SHA256}  /tmp/nodesource.gpg.key" | sha256sum -c -; \
   gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg /tmp/nodesource.gpg.key; \
   rm /tmp/nodesource.gpg.key; \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
