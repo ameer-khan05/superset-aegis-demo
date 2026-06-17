@@ -23,11 +23,12 @@ from marshmallow.exceptions import ValidationError
 from superset.commands.base import BaseCommand
 from superset.commands.exceptions import CommandInvalidError
 from superset.commands.importers.exceptions import IncorrectVersionError
+from superset.commands.importers.v1 import ImportModelsCommand
 from superset.commands.query.importers import v1
 
 logger = logging.getLogger(__name__)
 
-command_versions = [
+command_versions: list[type[ImportModelsCommand]] = [
     v1.ImportSavedQueriesCommand,
 ]
 
