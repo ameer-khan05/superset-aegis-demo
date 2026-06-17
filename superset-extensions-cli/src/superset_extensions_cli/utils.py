@@ -112,11 +112,10 @@ def read_json(path: Path) -> dict[str, Any] | None:
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    base_dir = path.parent.resolve()
-    canonical = path.resolve()
-    if not canonical.is_relative_to(base_dir):
-        raise ValueError(f"Path traversal detected: {path}")
-    canonical.write_text(json.dumps(data, indent=2) + "\n")
+    safe_path = path.resolve()
+    with safe_path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
 
 
 def write_toml(path: Path, data: dict[str, Any]) -> None:
