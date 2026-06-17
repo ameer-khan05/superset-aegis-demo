@@ -77,13 +77,13 @@ def _sanitize_error_for_logging(error: Exception) -> str:
     # Use case-insensitive flag to handle both cases
     error_str = re.sub(
         r"\bpostgresql://[^@\s]{1,100}@[^/\s]{1,100}/[^\s]{0,100}",
-        "postgresql://[REDACTED]@[REDACTED]/[REDACTED]",
+        "postgresql://[REDACTED]:[REDACTED]@[REDACTED]/[REDACTED]",
         error_str,
         flags=re.IGNORECASE,
     )
     error_str = re.sub(
         r"\bmysql://[^@\s]{1,100}@[^/\s]{1,100}/[^\s]{0,100}",
-        "mysql://[REDACTED]@[REDACTED]/[REDACTED]",
+        "mysql://[REDACTED]:[REDACTED]@[REDACTED]/[REDACTED]",
         error_str,
         flags=re.IGNORECASE,
     )
@@ -106,7 +106,7 @@ def _sanitize_error_for_logging(error: Exception) -> str:
     # Generic database connection URIs (redis, snowflake, bigquery, mssql, etc.)
     error_str = re.sub(
         r"\b\w+://[^@\s]{1,100}@[^/\s]{1,100}/[^\s]{0,100}",
-        "[SCHEME]://[REDACTED]@[REDACTED]/[REDACTED]",
+        "[SCHEME]://[REDACTED]:[REDACTED]@[REDACTED]/[REDACTED]",
         error_str,
         flags=re.IGNORECASE,
     )
