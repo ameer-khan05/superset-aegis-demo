@@ -201,7 +201,7 @@ services:
       DATABASE_HOST: db-light
       DATABASE_DB: test
       POSTGRES_DB: test
-      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:superset@db-light:5432/test
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://${DATABASE_USER:-superset}:${DATABASE_PASSWORD:-superset}@db-light:5432/test
       SUPERSET_CONFIG: superset_test_config_light
       PYTHONPATH: /app/pythonpath:/app/docker/pythonpath_dev:/app
 
