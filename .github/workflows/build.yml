@@ -15,6 +15,65 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: SonarQube Scan
+        id: sonar-scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Notify Aegis orchestrator
+        if: always()
+        env:
+          AEGIS_WEBHOOK_URL: ${{ secrets.AEGIS_WEBHOOK_URL }}
+          AEGIS_WEBHOOK_SECRET: ${{ secrets.AEGIS_WEBHOOK_SECRET }}
+          SCAN_OUTCOME: ${{ steps.sonar-scan.outcome }}
+        run: |
+          # Skip if secrets are not configured
+          if [ -z "$AEGIS_WEBHOOK_URL" ] || [ -z "$AEGIS_WEBHOOK_SECRET" ]; then
+            echo "Aegis secrets not configured — skipping webhook notification."
+            exit 0
+          fi
+
+          # Read the SonarCloud task ID from the scanner report, fall back to
+          # the GitHub run ID if the file is missing (e.g. scan was skipped).
+          TASK_ID=""
+          REPORT=".scannerwork/report-task.txt"
+          if [ -f "$REPORT" ]; then
+            TASK_ID=$(grep '^ceTaskId=' "$REPORT" | cut -d'=' -f2)
+          fi
+          TASK_ID="${TASK_ID:-gha-${{ github.run_id }}-${{ github.run_attempt }}}"
+
+          PROJECT_KEY="ameer-khan05_superset-aegis-demo"
+
+          # Reflect actual scan outcome in the payload
+          if [ "$SCAN_OUTCOME" = "success" ]; then
+            STATUS="SUCCESS"
+            QG_STATUS="OK"
+          else
+            STATUS="FAILED"
+            QG_STATUS="ERROR"
+          fi
+
+          # Build the JSON payload that matches what SonarCloud webhooks send
+          PAYLOAD=$(cat <<EOF
+          {"taskId":"${TASK_ID}","status":"${STATUS}","project":{"key":"${PROJECT_KEY}"},"qualityGate":{"status":"${QG_STATUS}"}}
+          EOF
+          )
+          # Trim whitespace so HMAC matches exactly
+          PAYLOAD=$(echo "$PAYLOAD" | tr -d '[:space:]')
+
+          # Compute HMAC-SHA256 signature (matches webhook.py _verify_signature)
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$AEGIS_WEBHOOK_SECRET" | awk '{print $NF}')
+
+          echo "Calling Aegis webhook: task=${TASK_ID} project=${PROJECT_KEY}"
+          HTTP_CODE=$(curl -s -o /tmp/aegis-response.txt -w '%{http_code}' \
+            -X POST "${AEGIS_WEBHOOK_URL}/webhook/sonar" \
+            -H "Content-Type: application/json" \
+            -H "X-Sonar-Webhook-HMAC-SHA256: ${SIGNATURE}" \
+            -d "$PAYLOAD")
+
+          BODY=$(cat /tmp/aegis-response.txt)
+          echo "Aegis response: HTTP ${HTTP_CODE} — ${BODY}"
+
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::warning::Aegis webhook failed (HTTP ${HTTP_CODE}): ${BODY}"
+          fi
