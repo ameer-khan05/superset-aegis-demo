@@ -1,0 +1,41 @@
+name: Aegis Trigger
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+jobs:
+  notify-aegis:
+    name: Notify Aegis Orchestrator
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST Aegis webhook
+        env:
+          AEGIS_WEBHOOK_URL: ${{ secrets.AEGIS_WEBHOOK_URL }}
+          AEGIS_WEBHOOK_SECRET: ${{ secrets.AEGIS_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$AEGIS_WEBHOOK_URL" ] || [ -z "$AEGIS_WEBHOOK_SECRET" ]; then
+            echo "Aegis secrets not configured — skipping webhook notification."
+            exit 0
+          fi
+
+          TASK_ID="gha-${{ github.run_id }}-${{ github.run_attempt }}"
+          PROJECT_KEY="ameer-khan05_superset-aegis-demo"
+
+          PAYLOAD="{\"taskId\":\"${TASK_ID}\",\"status\":\"SUCCESS\",\"project\":{\"key\":\"${PROJECT_KEY}\"},\"qualityGate\":{\"status\":\"OK\"}}"
+
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$AEGIS_WEBHOOK_SECRET" | awk '{print $NF}')
+
+          echo "Calling Aegis webhook: task=${TASK_ID} project=${PROJECT_KEY}"
+          HTTP_CODE=$(curl -s -o /tmp/aegis-response.txt -w '%{http_code}' \
+            -X POST "${AEGIS_WEBHOOK_URL}/webhook/sonar" \
+            -H "Content-Type: application/json" \
+            -H "X-Sonar-Webhook-HMAC-SHA256: ${SIGNATURE}" \
+            -d "$PAYLOAD")
+
+          BODY=$(cat /tmp/aegis-response.txt)
+          echo "Aegis response: HTTP ${HTTP_CODE} — ${BODY}"
+
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::warning::Aegis webhook failed (HTTP ${HTTP_CODE}): ${BODY}"
+          fi
