@@ -37,9 +37,12 @@ from superset.exceptions import SupersetException, SupersetSecurityException
 from superset.mcp_service.auth import MCPNoAuthSourceError, MCPPermissionDeniedError
 from superset.mcp_service.mcp_config import MCP_RESPONSE_SIZE_CONFIG
 from superset.mcp_service.middleware import (
+    _check_redis_password_protection,
     _is_user_error,
+    create_rate_limiter,
     create_response_size_guard_middleware,
     GlobalErrorHandlerMiddleware,
+    InMemoryRateLimiter,
     RBACToolVisibilityMiddleware,
     ResponseSizeGuardMiddleware,
 )
@@ -1245,3 +1248,78 @@ class TestRBACToolVisibilityMiddleware:
             result = await middleware.on_list_tools(MagicMock(), call_next)
 
         assert result == tools
+
+
+class TestCheckRedisPasswordProtection:
+    """Tests for _check_redis_password_protection."""
+
+    def test_raises_when_no_password(self) -> None:
+        """Should raise ValueError when Redis has no password configured."""
+        mock_cache = MagicMock()
+        mock_pool = MagicMock()
+        mock_pool.connection_kwargs = {"host": "localhost", "port": 6379}
+        mock_cache._read_client.connection_pool = mock_pool
+
+        with pytest.raises(ValueError, match="no password configured"):
+            _check_redis_password_protection(mock_cache)
+
+    def test_raises_when_password_empty(self) -> None:
+        """Should raise ValueError when Redis password is empty string."""
+        mock_cache = MagicMock()
+        mock_pool = MagicMock()
+        mock_pool.connection_kwargs = {"password": ""}
+        mock_cache._read_client.connection_pool = mock_pool
+
+        with pytest.raises(ValueError, match="no password configured"):
+            _check_redis_password_protection(mock_cache)
+
+    def test_passes_when_password_set(self) -> None:
+        """Should not raise when Redis password is configured."""
+        mock_cache = MagicMock()
+        mock_pool = MagicMock()
+        mock_pool.connection_kwargs = {"password": "s3cret"}
+        mock_cache._read_client.connection_pool = mock_pool
+
+        _check_redis_password_protection(mock_cache)
+
+    def test_warns_when_client_not_inspectable(self) -> None:
+        """Should log a warning when the Redis client cannot be inspected."""
+        mock_cache = MagicMock(spec=[])  # no attributes at all
+
+        # Should not raise — logs a warning and returns
+        _check_redis_password_protection(mock_cache)
+
+    def test_inspects_nested_cache_client(self) -> None:
+        """Should find the Redis client nested under cache.cache._read_client."""
+        mock_cache = MagicMock(spec=["cache"])
+        inner = MagicMock()
+        mock_pool = MagicMock()
+        mock_pool.connection_kwargs = {"password": "secret123"}
+        inner._read_client.connection_pool = mock_pool
+        mock_cache.cache = inner
+
+        _check_redis_password_protection(mock_cache)
+
+    def test_warns_on_unexpected_exception(self) -> None:
+        """Should log a warning on unexpected exceptions during inspection."""
+        mock_cache = MagicMock()
+        mock_cache._read_client.connection_pool = None
+        # When connection_pool is None, getattr returns None — no conn_kwargs check
+        # Should not raise
+        _check_redis_password_protection(mock_cache)
+
+
+class TestCreateRateLimiter:
+    """Tests for create_rate_limiter factory."""
+
+    def test_falls_back_to_in_memory_when_redis_has_no_password(self) -> None:
+        """Should fall back to InMemoryRateLimiter when Redis lacks a password."""
+        mock_cache_manager = MagicMock()
+        mock_pool = MagicMock()
+        mock_pool.connection_kwargs = {"host": "localhost", "port": 6379}
+        mock_cache_manager.cache._read_client.connection_pool = mock_pool
+
+        with patch("superset.extensions.cache_manager", mock_cache_manager):
+            limiter = create_rate_limiter()
+
+        assert isinstance(limiter, InMemoryRateLimiter)
