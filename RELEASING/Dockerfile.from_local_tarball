@@ -36,6 +36,7 @@ RUN apt-get install -y build-essential libssl-dev \
 # https://nodejs.org/en/download/package-manager/
 # Uses GPG-verified apt repository instead of piping downloaded script to bash
 RUN set -eux; \
+  apt-get install -y --no-install-recommends gnupg; \
   curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
     -o /tmp/nodesource.gpg.key; \
   gpg --dearmor -o /usr/share/keyrings/nodesource.gpg /tmp/nodesource.gpg.key; \
