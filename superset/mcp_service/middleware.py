@@ -804,6 +804,57 @@ class InMemoryRateLimiter:
         self._last_cleanup = current_time
 
 
+def _check_redis_password_protection(cache: Any) -> None:
+    """Verify the Redis cache backend has password authentication configured.
+
+    Raises ValueError when the underlying Redis connection has no password,
+    so callers can fall back to an alternative backend.
+    """
+    try:
+        # Flask-Caching stores the client on cache._read_client or cache._write_client
+        redis_client = (
+            getattr(cache, "_read_client", None)
+            or getattr(cache, "_write_client", None)
+        )
+        if redis_client is None:
+            # Some Flask-Caching backends nest the Redis client one level deeper
+            inner_cache = getattr(cache, "cache", None)
+            if inner_cache is not None:
+                redis_client = (
+                    getattr(inner_cache, "_read_client", None)
+                    or getattr(inner_cache, "_write_client", None)
+                )
+
+        if redis_client is None:
+            # Unable to inspect — log a warning but allow the caller to proceed
+            logger.warning(
+                "SECURITY: Could not inspect Redis client for password protection. "
+                "Ensure Redis is password-protected in production."
+            )
+            return
+
+        connection_pool = getattr(redis_client, "connection_pool", None)
+        if connection_pool is not None:
+            conn_kwargs: dict[str, Any] = getattr(
+                connection_pool, "connection_kwargs", {}
+            )
+            password = conn_kwargs.get("password")
+            if not password:
+                raise ValueError(
+                    "Redis connection has no password configured. "
+                    "Set a password via CACHE_REDIS_URL or cache backend config "
+                    "to protect rate-limit data."
+                )
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "SECURITY: Unable to verify Redis password protection: %s. "
+            "Ensure Redis is password-protected in production.",
+            exc,
+        )
+
+
 class RedisRateLimiter:
     """Redis-backed rate limiter for production."""
 
@@ -875,6 +926,9 @@ def create_rate_limiter() -> RateLimiterProtocol:
         from superset.extensions import cache_manager
 
         if cache_manager and cache_manager.cache:
+            # Verify the Redis backend is password-protected (python:S2115)
+            _check_redis_password_protection(cache_manager.cache)
+
             # Test Redis connectivity
             test_key = "mcp:ratelimit:test"
             cache_manager.cache.set(test_key, 1, timeout=1)
