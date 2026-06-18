@@ -95,7 +95,33 @@ TECHNICAL_NAME_REGEX = re.compile(TECHNICAL_NAME_PATTERN)
 DISPLAY_NAME_REGEX = re.compile(DISPLAY_NAME_PATTERN)
 
 
-def read_toml(path: Path) -> dict[str, Any] | None:
+def _validate_path(path: Path, base_dir: Path | None = None) -> Path:
+    """Resolve a file path and guard against path-traversal attacks.
+
+    Args:
+        path: The path to validate.
+        base_dir: If provided, the resolved path must reside within this directory.
+
+    Returns:
+        The resolved, validated path.
+
+    Raises:
+        ValueError: If the path contains traversal components or escapes the
+            allowed base directory.
+    """
+    resolved = path.resolve()
+    if base_dir is not None:
+        base_resolved = base_dir.resolve()
+        if not resolved.is_relative_to(base_resolved):
+            raise ValueError(
+                f"Path traversal detected: '{path}' resolves outside "
+                f"the allowed directory '{base_resolved}'"
+            )
+    return resolved
+
+
+def read_toml(path: Path, base_dir: Path | None = None) -> dict[str, Any] | None:
+    path = _validate_path(path, base_dir)
     if not path.is_file():
         return None
 
@@ -103,19 +129,21 @@ def read_toml(path: Path) -> dict[str, Any] | None:
         return tomllib.load(f)
 
 
-def read_json(path: Path) -> dict[str, Any] | None:
-    path = Path(path)
+def read_json(path: Path, base_dir: Path | None = None) -> dict[str, Any] | None:
+    path = _validate_path(path, base_dir)
     if not path.is_file():
         return None
 
     return json.loads(path.read_text())
 
 
-def write_json(path: Path, data: dict[str, Any]) -> None:
+def write_json(path: Path, data: dict[str, Any], base_dir: Path | None = None) -> None:
+    path = _validate_path(path, base_dir)
     path.write_text(json.dumps(data, indent=2) + "\n")
 
 
-def write_toml(path: Path, data: dict[str, Any]) -> None:
+def write_toml(path: Path, data: dict[str, Any], base_dir: Path | None = None) -> None:
+    path = _validate_path(path, base_dir)
     path.write_text(tomli_w.dumps(data))
 
 
