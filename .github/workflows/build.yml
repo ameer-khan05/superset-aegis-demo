@@ -6,6 +6,15 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
+    inputs:
+      full_scan:
+        description: "Run a full SonarCloud scan (all files, not just minimal scope)"
+        type: boolean
+        default: false
+      skip_aegis:
+        description: "Skip the Aegis webhook notification after scanning"
+        type: boolean
+        default: false
 jobs:
   sonarqube:
     name: SonarQube
@@ -13,9 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          # PRs need full history for accurate diff analysis;
-          # pushes/dispatch use shallow clone since we limit the scan scope.
-          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
+          # Full clone for PRs (diff analysis) and full scans (complete history).
+          # Shallow clone for minimal push/dispatch scans.
+          fetch-depth: ${{ (github.event_name == 'pull_request' || inputs.full_scan == true) && 0 || 1 }}
 
       - name: SonarQube Scan
         id: sonar-scan
@@ -23,17 +32,16 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          # On PRs: full incremental analysis (SonarCloud auto-diffs against target).
-          # On push/dispatch: limit to a minimal file set so the scan completes
-          # in seconds rather than scanning all 1.2M lines. The findings backlog
-          # already exists in SonarCloud; this just produces a taskId to trigger Aegis.
+          # On PRs or full_scan dispatch: scan everything (incremental on PRs).
+          # On regular push/dispatch: limit to a minimal file set so the scan
+          # completes in seconds rather than scanning all 1.2M lines.
           args: >
-            ${{ github.event_name != 'pull_request'
+            ${{ github.event_name != 'pull_request' && inputs.full_scan != true
                 && '-Dsonar.inclusions=sonar-project.properties'
                 || '' }}
 
       - name: Notify Aegis orchestrator
-        if: always()
+        if: ${{ always() && inputs.skip_aegis != true }}
         env:
           AEGIS_WEBHOOK_URL: ${{ secrets.AEGIS_WEBHOOK_URL }}
           AEGIS_WEBHOOK_SECRET: ${{ secrets.AEGIS_WEBHOOK_SECRET }}
