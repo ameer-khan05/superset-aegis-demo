@@ -2932,9 +2932,10 @@ class PartitionViz(NVD3TimeSeriesViz):
 
 
 def _get_subclasses(cls: type[BaseViz]) -> set[type[BaseViz]]:
-    return set(cls.__subclasses__()).union(
-        [sc for c in cls.__subclasses__() for sc in _get_subclasses(c)]
-    )
+    subclasses = cls.__subclasses__()
+    if not subclasses:
+        return set()
+    return set(subclasses).union([sc for c in subclasses for sc in _get_subclasses(c)])
 
 
 @deprecated(deprecated_in="3.0")
