@@ -113,7 +113,10 @@ def _resolve_safe_path(path: Path, base_dir: Path | None = None) -> Path:
     if base_dir is None:
         base_dir = path.parent
     base_resolved = base_dir.resolve()
-    if not str(resolved).startswith(str(base_resolved) + "/") and resolved != base_resolved:
+    if (
+        not str(resolved).startswith(str(base_resolved) + "/")
+        and resolved != base_resolved
+    ):
         raise ValueError(
             f"Path traversal detected: '{path}' resolves outside of '{base_dir}'"
         )
