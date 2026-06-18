@@ -95,28 +95,56 @@ TECHNICAL_NAME_REGEX = re.compile(TECHNICAL_NAME_PATTERN)
 DISPLAY_NAME_REGEX = re.compile(DISPLAY_NAME_PATTERN)
 
 
-def read_toml(path: Path) -> dict[str, Any] | None:
-    if not path.is_file():
+def _resolve_safe_path(path: Path, base_dir: Path | None = None) -> Path:
+    """
+    Resolve a path and validate it does not traverse outside a base directory.
+
+    Args:
+        path: The path to validate.
+        base_dir: The allowed base directory. Defaults to the path's parent.
+
+    Returns:
+        The resolved canonical path.
+
+    Raises:
+        ValueError: If the resolved path escapes the base directory.
+    """
+    resolved = path.resolve()
+    if base_dir is None:
+        base_dir = path.parent
+    base_resolved = base_dir.resolve()
+    if not str(resolved).startswith(str(base_resolved) + "/") and resolved != base_resolved:
+        raise ValueError(
+            f"Path traversal detected: '{path}' resolves outside of '{base_dir}'"
+        )
+    return resolved
+
+
+def read_toml(path: Path, base_dir: Path | None = None) -> dict[str, Any] | None:
+    safe_path = _resolve_safe_path(path, base_dir)
+    if not safe_path.is_file():
         return None
 
-    with path.open("rb") as f:
+    with safe_path.open("rb") as f:
         return tomllib.load(f)
 
 
-def read_json(path: Path) -> dict[str, Any] | None:
-    path = Path(path)
-    if not path.is_file():
+def read_json(path: Path, base_dir: Path | None = None) -> dict[str, Any] | None:
+    safe_path = _resolve_safe_path(path, base_dir)
+    if not safe_path.is_file():
         return None
 
-    return json.loads(path.read_text())
+    return json.loads(safe_path.read_text())
 
 
-def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(json.dumps(data, indent=2) + "\n")
+def write_json(path: Path, data: dict[str, Any], base_dir: Path | None = None) -> None:
+    safe_path = _resolve_safe_path(path, base_dir)
+    safe_path.write_text(json.dumps(data, indent=2) + "\n")
 
 
-def write_toml(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(tomli_w.dumps(data))
+def write_toml(path: Path, data: dict[str, Any], base_dir: Path | None = None) -> None:
+    safe_path = _resolve_safe_path(path, base_dir)
+    safe_path.write_text(tomli_w.dumps(data))
 
 
 def _normalize_for_identifiers(name: str) -> str:
