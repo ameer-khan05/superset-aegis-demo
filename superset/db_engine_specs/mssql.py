@@ -27,8 +27,12 @@ from sqlalchemy import types
 from sqlalchemy.dialects.mssql.base import SMALLDATETIME
 
 from superset.constants import TimeGrain
-from superset.db_engine_specs.base import BaseEngineSpec, DatabaseCategory
-from superset.errors import SupersetErrorType
+from superset.db_engine_specs.base import (
+    BaseEngineSpec,
+    BasicPropertiesType,
+    DatabaseCategory,
+)
+from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.models.sql_types.mssql_sql_types import GUID
 from superset.utils.core import GenericDataType
 
@@ -158,6 +162,25 @@ class MssqlEngineSpec(BaseEngineSpec):
             {},
         ),
     }
+
+    @classmethod
+    def validate_parameters(  # noqa: S2115
+        cls, properties: BasicPropertiesType
+    ) -> list[SupersetError]:
+        """Validate that a password is provided for MSSQL connections."""
+        errors: list[SupersetError] = []
+        parameters = properties.get("parameters", {})
+        password = parameters.get("password")
+        if not password:
+            errors.append(
+                SupersetError(
+                    message="A password is required for MSSQL database connections.",
+                    error_type=SupersetErrorType.CONNECTION_MISSING_PARAMETERS_ERROR,
+                    level=ErrorLevel.WARNING,
+                    extra={"missing": ["password"]},
+                ),
+            )
+        return errors
 
     @classmethod
     def epoch_to_dttm(cls) -> str:
