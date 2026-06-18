@@ -812,17 +812,15 @@ def _check_redis_password_protection(cache: Any) -> None:
     """
     try:
         # Flask-Caching stores the client on cache._read_client or cache._write_client
-        redis_client = (
-            getattr(cache, "_read_client", None)
-            or getattr(cache, "_write_client", None)
+        redis_client = getattr(cache, "_read_client", None) or getattr(
+            cache, "_write_client", None
         )
         if redis_client is None:
             # Some Flask-Caching backends nest the Redis client one level deeper
             inner_cache = getattr(cache, "cache", None)
             if inner_cache is not None:
-                redis_client = (
-                    getattr(inner_cache, "_read_client", None)
-                    or getattr(inner_cache, "_write_client", None)
+                redis_client = getattr(inner_cache, "_read_client", None) or getattr(
+                    inner_cache, "_write_client", None
                 )
 
         if redis_client is None:
