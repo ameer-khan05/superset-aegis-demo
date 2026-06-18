@@ -1,10 +1,9 @@
-name: PR Analysis
+name: SonarCloud Full Scan
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 jobs:
-  sonarqube:
-    name: SonarQube PR Analysis
+  full-scan:
+    name: Full SonarCloud Scan (backlog refresh)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
