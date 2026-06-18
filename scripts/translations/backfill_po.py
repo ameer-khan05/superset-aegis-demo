@@ -525,10 +525,19 @@ def backfill(
             file=sys.stderr,
         )
         sys.exit(1)
-    po_path = TRANSLATIONS_DIR / lang / "LC_MESSAGES" / "messages.po"
+    po_path = (TRANSLATIONS_DIR / lang / "LC_MESSAGES" / "messages.po").resolve()
+    # Verify the resolved path remains within the translations directory to
+    # prevent path traversal even if the regex were bypassed in the future.
+    if not str(po_path).startswith(str(TRANSLATIONS_DIR.resolve())):
+        print(
+            f"Resolved path escapes translations directory: {po_path}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     if not po_path.exists():
         print(f"No .po file found for language '{lang}': {po_path}", file=sys.stderr)
         sys.exit(1)
+    index_path = index_path.resolve()
     if not index_path.exists():
         print(
             f"Translation index not found at {index_path}.\n"
