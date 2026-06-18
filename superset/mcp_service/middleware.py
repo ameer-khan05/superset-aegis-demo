@@ -868,6 +868,49 @@ class RedisRateLimiter:
         pass
 
 
+def _is_redis_password_protected(cache: Any) -> bool:
+    """Verify that the Redis cache connection has password authentication configured.
+
+    Checks the underlying Redis client's connection pool for a password or
+    credential provider, which ensures compliance with security policy S2115
+    (databases must be password-protected).
+    """
+    try:
+        # Flask-Caching Redis backends expose the underlying client
+        redis_client = getattr(cache, "_write_client", None) or getattr(
+            cache, "cache", None
+        )
+        if redis_client is None:
+            redis_client = getattr(cache, "_read_client", redis_client)
+
+        if redis_client is None:
+            return False
+
+        # Check connection pool for password configuration
+        pool = getattr(redis_client, "connection_pool", None)
+        if pool is None:
+            return False
+
+        conn_kwargs = getattr(pool, "connection_kwargs", {})
+
+        # A password or credential_provider indicates authentication is configured
+        if conn_kwargs.get("password"):
+            return True
+        if conn_kwargs.get("credential_provider"):
+            return True
+
+        # Also check if using a URL-based connection that includes credentials
+        url = getattr(pool, "connection_class_kwargs", {}).get("url", "")
+        if url and "@" in str(url):
+            # URL contains credentials (e.g., redis://:password@host:port)
+            return True
+
+        return False
+    except Exception:
+        # If we cannot determine auth status, assume unprotected
+        return False
+
+
 def create_rate_limiter() -> RateLimiterProtocol:
     """Factory to create appropriate rate limiter based on environment."""
     try:
@@ -880,6 +923,18 @@ def create_rate_limiter() -> RateLimiterProtocol:
             cache_manager.cache.set(test_key, 1, timeout=1)
             if cache_manager.cache.get(test_key):
                 cache_manager.cache.delete(test_key)
+
+                # Verify Redis has password authentication configured (S2115)
+                if not _is_redis_password_protected(cache_manager.cache):
+                    logger.warning(
+                        "Redis cache does not have password authentication "
+                        "configured. Falling back to in-memory rate limiter. "
+                        "Configure CACHE_CONFIG with CACHE_REDIS_PASSWORD or "
+                        "use a redis:// URL with credentials to enable Redis "
+                        "rate limiting."
+                    )
+                    return InMemoryRateLimiter()
+
                 logger.info("Using Redis for rate limiting")
                 return RedisRateLimiter()
     except Exception as e:
