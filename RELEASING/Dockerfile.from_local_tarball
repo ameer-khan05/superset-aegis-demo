@@ -34,8 +34,15 @@ RUN apt-get install -y build-essential libssl-dev \
 
 # Install nodejs for custom build
 # https://nodejs.org/en/download/package-manager/
+# Uses GPG-verified apt repository instead of piping downloaded script to bash
 RUN set -eux; \
-  curl -sL https://deb.nodesource.com/setup_20.x | bash -; \
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+    -o /tmp/nodesource.gpg.key; \
+  gpg --dearmor -o /usr/share/keyrings/nodesource.gpg /tmp/nodesource.gpg.key; \
+  rm /tmp/nodesource.gpg.key; \
+  echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
+    > /etc/apt/sources.list.d/nodesource.list; \
+  apt-get update; \
   apt-get install -y nodejs; \
   node --version;
 RUN if ! which npm; then apt-get install -y npm; fi
