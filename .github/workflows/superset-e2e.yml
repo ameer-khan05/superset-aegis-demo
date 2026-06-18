@@ -74,7 +74,7 @@ jobs:
     env:
       SUPERSET_ENV: development
       SUPERSET_CONFIG: tests.integration_tests.superset_test_config
-      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:superset@127.0.0.1:15432/superset
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${{ secrets.POSTGRES_PASSWORD }}@127.0.0.1:15432/superset
       PYTHONPATH: ${{ github.workspace }}
       REDIS_PORT: 16379
       GITHUB_TOKEN: ${{ github.token }}
@@ -85,7 +85,7 @@ jobs:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: superset
-          POSTGRES_PASSWORD: superset
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         ports:
           - 15432:5432
       redis:
@@ -186,7 +186,7 @@ jobs:
     env:
       SUPERSET_ENV: development
       SUPERSET_CONFIG: tests.integration_tests.superset_test_config
-      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:superset@127.0.0.1:15432/superset
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${{ secrets.POSTGRES_PASSWORD }}@127.0.0.1:15432/superset
       PYTHONPATH: ${{ github.workspace }}
       REDIS_PORT: 16379
       GITHUB_TOKEN: ${{ github.token }}
@@ -195,7 +195,7 @@ jobs:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: superset
-          POSTGRES_PASSWORD: superset
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         ports:
           - 15432:5432
       redis:
