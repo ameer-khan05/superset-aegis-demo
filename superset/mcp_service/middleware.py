@@ -868,6 +868,42 @@ class RedisRateLimiter:
         pass
 
 
+def _is_cache_password_protected() -> bool:
+    """Check whether the configured cache backend has password protection.
+
+    Returns ``True`` when the backend is not Redis, when a password is
+    present in ``CACHE_REDIS_URL`` or ``CACHE_REDIS_PASSWORD``, or when
+    the configuration cannot be inspected (fail-open for availability).
+
+    Returns ``False`` only when the backend is confirmed to be Redis and
+    no password is configured — a violation of python:S2115.
+    """
+    try:
+        from urllib.parse import urlparse
+
+        from superset.mcp_service.flask_singleton import get_flask_app
+
+        flask_app = get_flask_app()
+        cache_config: dict[str, Any] = flask_app.config.get("CACHE_CONFIG", {})
+        cache_type = str(cache_config.get("CACHE_TYPE", "")).lower()
+
+        if "redis" not in cache_type:
+            return True
+
+        redis_url = cache_config.get("CACHE_REDIS_URL", "")
+        if redis_url:
+            parsed = urlparse(str(redis_url))
+            if parsed.password:
+                return True
+
+        if cache_config.get("CACHE_REDIS_PASSWORD"):
+            return True
+
+        return False
+    except Exception:
+        return True
+
+
 def create_rate_limiter() -> RateLimiterProtocol:
     """Factory to create appropriate rate limiter based on environment."""
     try:
@@ -875,6 +911,15 @@ def create_rate_limiter() -> RateLimiterProtocol:
         from superset.extensions import cache_manager
 
         if cache_manager and cache_manager.cache:
+            if not _is_cache_password_protected():
+                logger.warning(
+                    "Redis cache backend has no password protection configured "
+                    "(python:S2115). Falling back to in-memory rate limiter. "
+                    "Set CACHE_REDIS_PASSWORD or include credentials in "
+                    "CACHE_REDIS_URL to use Redis."
+                )
+                return InMemoryRateLimiter()
+
             # Test Redis connectivity
             test_key = "mcp:ratelimit:test"
             cache_manager.cache.set(test_key, 1, timeout=1)
