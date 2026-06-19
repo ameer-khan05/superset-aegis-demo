@@ -37,10 +37,14 @@ from superset.exceptions import SupersetException, SupersetSecurityException
 from superset.mcp_service.auth import MCPNoAuthSourceError, MCPPermissionDeniedError
 from superset.mcp_service.mcp_config import MCP_RESPONSE_SIZE_CONFIG
 from superset.mcp_service.middleware import (
+    _is_cache_password_protected,
     _is_user_error,
+    create_rate_limiter,
     create_response_size_guard_middleware,
     GlobalErrorHandlerMiddleware,
+    InMemoryRateLimiter,
     RBACToolVisibilityMiddleware,
+    RedisRateLimiter,
     ResponseSizeGuardMiddleware,
 )
 
@@ -1245,3 +1249,124 @@ class TestRBACToolVisibilityMiddleware:
             result = await middleware.on_list_tools(MagicMock(), call_next)
 
         assert result == tools
+
+
+class TestCachePasswordProtection:
+    """Tests for _is_cache_password_protected and create_rate_limiter."""
+
+    def test_returns_true_for_non_redis_backend(self) -> None:
+        """Non-Redis cache types need no password check."""
+        app = MagicMock()
+        app.config = {"CACHE_CONFIG": {"CACHE_TYPE": "SimpleCache"}}
+        with patch(
+            "superset.mcp_service.flask_singleton.get_flask_app",
+            return_value=app,
+        ):
+            assert _is_cache_password_protected() is True
+
+    def test_returns_true_when_redis_url_has_password(self) -> None:
+        """Redis URL with embedded password should pass."""
+        app = MagicMock()
+        app.config = {
+            "CACHE_CONFIG": {
+                "CACHE_TYPE": "RedisCache",
+                "CACHE_REDIS_URL": "redis://:secret@localhost:6379/0",
+            }
+        }
+        with patch(
+            "superset.mcp_service.flask_singleton.get_flask_app",
+            return_value=app,
+        ):
+            assert _is_cache_password_protected() is True
+
+    def test_returns_true_when_redis_password_config_set(self) -> None:
+        """Separate CACHE_REDIS_PASSWORD config should pass."""
+        app = MagicMock()
+        app.config = {
+            "CACHE_CONFIG": {
+                "CACHE_TYPE": "RedisCache",
+                "CACHE_REDIS_URL": "redis://localhost:6379/0",
+                "CACHE_REDIS_PASSWORD": "my-secret",
+            }
+        }
+        with patch(
+            "superset.mcp_service.flask_singleton.get_flask_app",
+            return_value=app,
+        ):
+            assert _is_cache_password_protected() is True
+
+    def test_returns_false_when_redis_has_no_password(self) -> None:
+        """Redis URL without password and no CACHE_REDIS_PASSWORD should fail."""
+        app = MagicMock()
+        app.config = {
+            "CACHE_CONFIG": {
+                "CACHE_TYPE": "RedisCache",
+                "CACHE_REDIS_URL": "redis://localhost:6379/0",
+            }
+        }
+        with patch(
+            "superset.mcp_service.flask_singleton.get_flask_app",
+            return_value=app,
+        ):
+            assert _is_cache_password_protected() is False
+
+    def test_returns_false_when_redis_no_url_no_password(self) -> None:
+        """Redis type with no URL and no password config should fail."""
+        app = MagicMock()
+        app.config = {"CACHE_CONFIG": {"CACHE_TYPE": "RedisCache"}}
+        with patch(
+            "superset.mcp_service.flask_singleton.get_flask_app",
+            return_value=app,
+        ):
+            assert _is_cache_password_protected() is False
+
+    def test_returns_true_when_config_unavailable(self) -> None:
+        """Should fail open when Flask app is not available."""
+        with patch(
+            "superset.mcp_service.flask_singleton.get_flask_app",
+            side_effect=RuntimeError("no app"),
+        ):
+            assert _is_cache_password_protected() is True
+
+    def test_returns_true_when_no_cache_config(self) -> None:
+        """Empty config (no CACHE_CONFIG) should pass -- not Redis."""
+        app = MagicMock()
+        app.config = {}
+        with patch(
+            "superset.mcp_service.flask_singleton.get_flask_app",
+            return_value=app,
+        ):
+            assert _is_cache_password_protected() is True
+
+    def test_create_rate_limiter_falls_back_when_unprotected(self) -> None:
+        """create_rate_limiter returns InMemoryRateLimiter for unprotected Redis."""
+        mock_cache = MagicMock()
+        mock_cm = MagicMock()
+        mock_cm.cache = mock_cache
+
+        with (
+            patch("superset.extensions.cache_manager", mock_cm),
+            patch(
+                "superset.mcp_service.middleware._is_cache_password_protected",
+                return_value=False,
+            ),
+        ):
+            limiter = create_rate_limiter()
+            assert isinstance(limiter, InMemoryRateLimiter)
+
+    def test_create_rate_limiter_uses_redis_when_protected(self) -> None:
+        """create_rate_limiter returns RedisRateLimiter for protected Redis."""
+        mock_cache = MagicMock()
+        mock_cache.get.return_value = 1
+        mock_cm = MagicMock()
+        mock_cm.cache = mock_cache
+
+        with (
+            patch("superset.extensions.cache_manager", mock_cm),
+            patch(
+                "superset.mcp_service.middleware._is_cache_password_protected",
+                return_value=True,
+            ),
+        ):
+            limiter = create_rate_limiter()
+            assert isinstance(limiter, RedisRateLimiter)
