@@ -2837,6 +2837,8 @@ class PartitionViz(NVD3TimeSeriesViz):
         """
         if dims is None:
             dims = []
+        if level >= len(levels):
+            return []
         if not level:
             return [
                 {
@@ -2856,8 +2858,6 @@ class PartitionViz(NVD3TimeSeriesViz):
                 }
                 for i in metric_level.index
             ]
-        if level >= len(levels):
-            return []
 
         dim_level = levels[level][metric]
         for d in dims:
@@ -2884,6 +2884,8 @@ class PartitionViz(NVD3TimeSeriesViz):
     ) -> list[dict[str, Any]]:
         if dims is None:
             dims = ()
+        if level >= len(procs):
+            return []
         if level == -1:
             return [
                 {"name": m, "children": self.nest_procs(procs, 0, (m,))}
@@ -2898,8 +2900,6 @@ class PartitionViz(NVD3TimeSeriesViz):
                 }
                 for t in procs[0].index
             ]
-        if level >= len(procs):
-            return []
         return [
             {
                 "name": i,
